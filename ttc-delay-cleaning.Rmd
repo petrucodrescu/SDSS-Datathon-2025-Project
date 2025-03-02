@@ -1,0 +1,75 @@
+
+```{r}
+library(opendatatoronto)
+library(dplyr)
+library(stringr)
+```
+
+```{r}
+# get package
+subway_data_2023 <- list_package_resources("996cfe8d-fb35-40ce-b569-698d51fc683b") |>
+  filter(name == "ttc-subway-delay-data-2023") |>
+  get_resource()
+
+subway_data_2024 <- list_package_resources("996cfe8d-fb35-40ce-b569-698d51fc683b") |>
+  filter(name == "ttc-subway-delay-data-2024") |>
+  get_resource()
+
+subway_data <- rbind(subway_data_2023, subway_data_2024) |>
+  rename(min_delay = "Min Delay", min_gap = "Min Gap")
+```
+
+```{r}
+# Clean and standardize station names
+cleaned_delays <- subway_data %>%
+  mutate(
+    Station = str_to_upper(Station),  # Convert to uppercase for consistency
+    Station = str_replace_all(Station, "STAITON|STAION|STN", "STATION"),  # Fix typos
+    Station = str_replace_all(Station, "BUILD-UP|BUILD UP|BUILDUP", "BUILDUP"),
+    Station = str_replace_all(Station, "MC COWAN", "MCCOWAN"),
+    Station = str_replace_all(Station, "YORK UNIVERSITY STATIO.*", "YORK UNIVERSITY STATION"),
+    Station = str_replace_all(Station, "UNION STATION.*", "UNION STATION"),
+    Station = str_replace_all(Station, "KENNEDY SRT STATION.*", "KENNEDY STATION"),
+    Station = str_replace_all(Station, "SHEPPARD[- ]YONGE.*", "SHEPPARD-YONGE STATION"),
+    Station = str_replace_all(Station, "NORTH YORK CTR.*", "NORTH YORK CENTRE STATION"),
+    Station = str_replace_all(Station, "ST CLAIR WEST.*", "ST CLAIR WEST STATION"),
+    Station = str_replace_all(Station, "SPADINA BD|SPADINA YUS", "SPADINA STATION"),
+    Station = str_replace_all(Station, "WARDEN STATION.*", "WARDEN STATION"),
+
+    # Remove anything in parentheses
+    Station = str_replace_all(Station, "\\(.*\\)", ""),
+    
+    # Trim spaces
+    Station = str_trim(Station)
+  ) %>%
+
+  # Handle stations that start with "ST " separately
+  mutate(
+    is_st_prefix = str_detect(Station, "^ST "),
+    
+    # If the station starts with "ST ", group variations under the first two words
+    Station = ifelse(is_st_prefix, str_extract(Station, "^ST [A-Z]+"), Station),
+
+    # Apply grouping for all other stations (excluding ST prefixes)
+    Station = ifelse(!is_st_prefix, str_replace(Station, "^(.*) TO .*", "\\1"), Station),
+    Station = ifelse(!is_st_prefix, str_replace(Station, "^(.*?)[ /\\-].*", "\\1"), Station)
+  ) %>%
+  select(-is_st_prefix)  # Remove helper column
+
+# Count occurrences of each station
+final_delays <- cleaned_delays %>%
+  group_by(Station) %>%
+  summarise(Total_Delays = n()) %>%
+  arrange(desc(Total_Delays)) %>% filter(Total_Delays >= 5)
+
+# Get all rows from original dataset where the station is in the filtered set
+filtered_data <- cleaned_delays %>%
+  filter(Station %in% final_delays$Station)
+```
+
+```{r}
+final_delays <- cleaned_delays %>% group_by(Station) %>%
+  filter(!grepl("MIDLAND|SCARBOROUGH|YU|GUNN|WEEKEND|DANFORTH|SUBWAY|SRT|LINE|ST. |QUEENS|TORONTO|MCCOWAN", Station, ignore.case = TRUE))
+write.csv(final_delays, "filtered_subway_delays.csv", row.names = FALSE)
+```
+
