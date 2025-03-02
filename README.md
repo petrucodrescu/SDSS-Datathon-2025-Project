@@ -1,5 +1,7 @@
 # Mind the Gap: Predicting TTC Subway Delays with a Machine Learning Approach
 
+Authors: Petru Codrescu, Andre Sanchez-Plehn, Sean Chua, and Julia Tan
+
 ## Overview
 
 This submission presents a machine learning analysis for forecasting TTC subway delays. By leveraging TTC subway data from 2023 and 2024, a neural network was created to identify stations with the highest predicted delays and provide insights for operational optimizations. The analysis is conducted in R and Python, utilizing ML techniques to estimate station-specific delay patterns. The final report found in our notebook (`MindTheGap.ipynb`) details the dataset, methodology, and key findings that may assist transit authorities in optimizing scheduling and improving overall efficiency.
